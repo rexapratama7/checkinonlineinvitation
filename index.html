@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Check In Peserta - J&T Cargo</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --jt-green: #00A651;
+      --jt-green-dark: #008440;
+      --jt-green-light: #E8F5E9;
+      --jt-dark: #1E1E1E;
+      --jt-gray: #F4F6F5;
+    }
+
+    * { box-sizing: border-box; font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
+    body { background-color: var(--jt-gray); color: #333; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+
+    .app-bar {
+      width: 100%; background: var(--jt-green); color: white; padding: 18px 16px; text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 10;
+    }
+    .app-bar h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .app-bar p { font-size: 12px; color: #E0F2FE; margin-top: 2px; }
+
+    .main-container { width: 100%; max-width: 480px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    
+    .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+    .scanner-card { overflow: hidden; padding: 0; position: relative; border: 3px solid var(--jt-green); border-radius: 16px; }
+    #reader { width: 100%; border: none !important; }
+    #reader video { object-fit: cover !important; border-radius: 12px; }
+    
+    .loading { display: none; text-align: center; padding: 12px; font-weight: 500; color: var(--jt-green-dark); }
+
+    .result { display: none; padding: 20px; border-radius: 12px; text-align: center; margin-top: 10px; }
+    .result.success { background: var(--jt-green-light); border: 2px solid var(--jt-green); color: var(--jt-green-dark); }
+    .result.warning { background: #FFFDE7; border: 2px solid #F59E0B; color: #B45309; }
+    .result.failed { background: #FFEBEE; border: 2px solid #EF4444; color: #991B1B; }
+    .result .icon { font-size: 48px; margin-bottom: 8px; }
+    .result .status { font-size: 18px; font-weight: 700; }
+    .result .name { font-size: 22px; font-weight: 700; margin: 6px 0; word-break: break-word; }
+    .result .info { font-size: 14px; opacity: 0.9; }
+
+    .form-title { font-size: 14px; font-weight: 700; color: var(--jt-dark); text-transform: uppercase; margin-bottom: 14px; letter-spacing: 0.5px; }
+    .input-group { margin-bottom: 12px; }
+    .input-group label { display: block; font-size: 12px; font-weight: 500; color: #666; margin-bottom: 4px; }
+    .input-group input {
+      width: 100%; padding: 12px; border: 1.5px solid #DDD; border-radius: 8px; font-size: 14px; outline: none;
+    }
+    .input-group input:focus { border-color: var(--jt-green); }
+    
+    .btn-submit {
+      width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px;
+      border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s;
+    }
+    .btn-submit:active { background: var(--jt-green-dark); }
+  </style>
+</head>
+<body>
+
+  <div class="app-bar">
+    <h1>CHECK-IN PESERTA</h1>
+    <p>J&T CARGO EVENT SYSTEM</p>
+  </div>
+
+  <div class="main-container">
+
+    <div class="card scanner-card">
+      <div id="reader"></div>
+    </div>
+
+    <div id="loading" class="loading">
+      ⏳ Memproses check-in...
+    </div>
+
+    <div id="result" class="result">
+      <div id="icon" class="icon"></div>
+      <div id="status" class="status"></div>
+      <div id="name" class="name"></div>
+      <div id="outlet" class="info"></div>
+      <div id="id" class="info"></div>
+      <div id="time" class="info"></div>
+    </div>
+
+    <div class="card">
+      <div class="form-title">Check-in Manual</div>
+      <form id="manualForm" onsubmit="handleManualSubmit(event)">
+        <div class="input-group">
+          <label for="inputName">NAMA PESERTA</label>
+          <input type="text" id="inputName" placeholder="Masukkan nama peserta...">
+        </div>
+        <div class="input-group">
+          <label for="inputOutlet">KODE OUTLET</label>
+          <input type="text" id="inputOutlet" placeholder="Contoh: JTC-001">
+        </div>
+        <button type="submit" class="btn-submit">SUBMIT CHECK-IN</button>
+      </form>
+    </div>
+
+  </div>
+
+<script>
+const APPS_SCRIPT_URL = '<?= CONFIG.WEB_APP_URL ?>';
+
+let scanning = true;
+let html5QrCode;
+
+const resultBox = document.getElementById('result');
+const icon = document.getElementById('icon');
+const statusBox = document.getElementById('status');
+const nameBox = document.getElementById('name');
+const outletBox = document.getElementById('outlet');
+const idBox = document.getElementById('id');
+const timeBox = document.getElementById('time');
+const loading = document.getElementById('loading');
+
+function startCamera() {
+  html5QrCode = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+  html5QrCode.start(
+    { facingMode: { exact: "environment" } }, 
+    config, 
+    onScanSuccess
+  ).catch(() => {
+    html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+  });
+}
+
+function onScanSuccess(decodedText) {
+  if (!scanning) return;
+  scanning = false;
+
+  let token = '';
+  try {
+    const url = new URL(decodedText);
+    token = url.searchParams.get('token') || '';
+  } catch (error) {
+    token = decodedText.trim();
+  }
+
+  if (!token) {
+    showResult({ success: false, message: 'QR Code tidak valid!' });
+    setTimeout(resumeScanner, 3000);
+    return;
+  }
+
+  executeRequest('checkin', '&token=' + encodeURIComponent(token));
+}
+
+function handleManualSubmit(e) {
+  e.preventDefault();
+  if (!scanning) return;
+
+  const nameVal = document.getElementById('inputName').value.trim();
+  const outletVal = document.getElementById('inputOutlet').value.trim();
+
+  if (!nameVal && !outletVal) {
+    alert('Mohon isi Nama Peserta atau Kode Outlet!');
+    return;
+  }
+
+  scanning = false;
+  executeRequest('manual_checkin', '&name=' + encodeURIComponent(nameVal) + '&outlet=' + encodeURIComponent(outletVal));
+}
+
+function executeRequest(action, extraParams) {
+  loading.style.display = 'block';
+  const callbackName = 'checkInCallback_' + Date.now();
+
+  const timeoutId = setTimeout(() => {
+    if (window[callbackName]) {
+      loading.style.display = 'none';
+      showResult({ success: false, message: 'Koneksi ke server timeout.' });
+      delete window[callbackName];
+      setTimeout(resumeScanner, 3000);
+    }
+  }, 10000);
+
+  window[callbackName] = function(result) {
+    clearTimeout(timeoutId);
+    loading.style.display = 'none';
+    showResult(result);
+    try { delete window[callbackName]; } catch(e) {}
+    setTimeout(resumeScanner, 3500);
+  };
+
+  const script = document.createElement('script');
+  script.src = APPS_SCRIPT_URL + '?action=' + action + extraParams + '&callback=' + callbackName + '&t=' + Date.now();
+  script.onerror = () => {
+    clearTimeout(timeoutId);
+    loading.style.display = 'none';
+    showResult({ success: false, message: 'Gagal terhubung ke server.' });
+    try { delete window[callbackName]; } catch(e) {}
+    setTimeout(resumeScanner, 3000);
+  };
+
+  document.body.appendChild(script);
+}
+
+function showResult(result) {
+  resultBox.style.display = 'block';
+
+  if (result.success) {
+    resultBox.className = 'result success';
+    icon.innerText = '✅';
+    statusBox.innerText = 'CHECK-IN BERHASIL';
+    nameBox.innerText = result.name || '-';
+    outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
+    idBox.innerText = 'ID: ' + (result.id || '-');
+    timeBox.innerText = 'Waktu: ' + (result.time || '');
+    return;
+  }
+
+  if (result.alreadyCheckedIn) {
+    resultBox.className = 'result warning';
+    icon.innerText = '⚠️';
+    statusBox.innerText = 'SUDAH CHECK-IN';
+    nameBox.innerText = result.name || '-';
+    outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
+    idBox.innerText = 'ID: ' + (result.id || '-');
+    timeBox.innerText = result.time ? 'Check-in: ' + result.time : '';
+    return;
+  }
+
+  resultBox.className = 'result failed';
+  icon.innerText = '❌';
+  statusBox.innerText = 'GAGAL CHECK-IN';
+  nameBox.innerText = result.message || 'Data tidak ditemukan.';
+  outletBox.innerText = '';
+  idBox.innerText = '';
+  timeBox.innerText = '';
+}
+
+function resumeScanner() {
+  resultBox.style.display = 'none';
+  loading.style.display = 'none';
+  document.getElementById('inputName').value = '';
+  document.getElementById('inputOutlet').value = '';
+  scanning = true;
+}
+
+window.addEventListener('DOMContentLoaded', startCamera);
+</script>
+
+</body>
+</html>
