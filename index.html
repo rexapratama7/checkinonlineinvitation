@@ -53,10 +53,15 @@
     }
     .input-group input:focus { border-color: var(--jt-green); }
     
+    .divider { text-align: center; font-size: 12px; color: #888; margin: 12px 0; position: relative; }
+    .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: #DDD; }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
     .btn-submit {
       width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px;
       border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s;
+      box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px;
     }
     .btn-submit:active { background: var(--jt-green-dark); }
   </style>
@@ -90,6 +95,14 @@
     <div class="card">
       <div class="form-title">Check-in Manual</div>
       <form id="manualForm" onsubmit="handleManualSubmit(event)">
+        
+        <div class="input-group">
+          <label for="inputId">ID UNDANGAN</label>
+          <input type="text" id="inputId" placeholder="Contoh: EVT-00001">
+        </div>
+
+        <div class="divider">ATAU</div>
+
         <div class="input-group">
           <label for="inputName">NAMA PESERTA</label>
           <input type="text" id="inputName" placeholder="Masukkan nama peserta...">
@@ -98,6 +111,7 @@
           <label for="inputOutlet">KODE OUTLET</label>
           <input type="text" id="inputOutlet" placeholder="Contoh: JTC-001">
         </div>
+
         <button type="submit" class="btn-submit">SUBMIT CHECK-IN</button>
       </form>
     </div>
@@ -157,16 +171,22 @@ function handleManualSubmit(e) {
   e.preventDefault();
   if (!scanning) return;
 
+  const idVal = document.getElementById('inputId').value.trim();
   const nameVal = document.getElementById('inputName').value.trim();
   const outletVal = document.getElementById('inputOutlet').value.trim();
 
-  if (!nameVal && !outletVal) {
-    alert('Mohon isi Nama Peserta atau Kode Outlet!');
+  // Validasi: Harus mengisi ID Saja, ATAU Nama dan Outlet
+  if (!idVal && (!nameVal || !outletVal)) {
+    alert('Mohon isi ID Undangan, atau lengkapi Nama & Kode Outlet!');
     return;
   }
 
   scanning = false;
-  executeRequest('manual_checkin', '&name=' + encodeURIComponent(nameVal) + '&outlet=' + encodeURIComponent(outletVal));
+  const extraParams = '&id=' + encodeURIComponent(idVal) + 
+                      '&name=' + encodeURIComponent(nameVal) + 
+                      '&outlet=' + encodeURIComponent(outletVal);
+                      
+  executeRequest('manual_checkin', extraParams);
 }
 
 function executeRequest(action, extraParams) {
@@ -240,6 +260,7 @@ function showResult(result) {
 function resumeScanner() {
   resultBox.style.display = 'none';
   loading.style.display = 'none';
+  document.getElementById('inputId').value = '';
   document.getElementById('inputName').value = '';
   document.getElementById('inputOutlet').value = '';
   scanning = true;
