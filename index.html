@@ -8,26 +8,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   
   <style>
-    :root {
-      --jt-green: #00A651;
-      --jt-green-dark: #008440;
-      --jt-green-light: #E8F5E9;
-      --jt-dark: #1E1E1E;
-      --jt-gray: #F4F6F5;
-    }
-
+    :root { --jt-green: #00A651; --jt-green-dark: #008440; --jt-green-light: #E8F5E9; --jt-dark: #1E1E1E; --jt-gray: #F4F6F5; }
     * { box-sizing: border-box; font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
     body { background-color: var(--jt-gray); color: #333; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
 
-    .app-bar {
-      width: 100%; background: var(--jt-green); color: white; padding: 18px 16px; text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 10;
-    }
+    .app-bar { width: 100%; background: var(--jt-green); color: white; padding: 18px 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 10; }
     .app-bar h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
     .app-bar p { font-size: 12px; color: #E0F2FE; margin-top: 2px; }
 
     .main-container { width: 100%; max-width: 480px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-    
     .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
     .scanner-card { overflow: hidden; padding: 0; position: relative; border: 3px solid var(--jt-green); border-radius: 16px; }
@@ -45,24 +34,14 @@
     .result .name { font-size: 22px; font-weight: 700; margin: 6px 0; word-break: break-word; }
     .result .info { font-size: 14px; opacity: 0.9; }
 
-    .form-title { font-size: 14px; font-weight: 700; color: var(--jt-dark); text-transform: uppercase; margin-bottom: 14px; letter-spacing: 0.5px; }
+    .form-title { font-size: 14px; font-weight: 700; color: var(--jt-dark); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .form-subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
     .input-group { margin-bottom: 12px; }
     .input-group label { display: block; font-size: 12px; font-weight: 500; color: #666; margin-bottom: 4px; }
-    .input-group input {
-      width: 100%; padding: 12px; border: 1.5px solid #DDD; border-radius: 8px; font-size: 14px; outline: none;
-    }
+    .input-group input { width: 100%; padding: 12px; border: 1.5px solid #DDD; border-radius: 8px; font-size: 14px; outline: none; }
     .input-group input:focus { border-color: var(--jt-green); }
     
-    .divider { text-align: center; font-size: 12px; color: #888; margin: 12px 0; position: relative; }
-    .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: #DDD; }
-    .divider::before { left: 0; }
-    .divider::after { right: 0; }
-
-    .btn-submit {
-      width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px;
-      border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px;
-    }
+    .btn-submit { width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px; }
     .btn-submit:active { background: var(--jt-green-dark); }
   </style>
 </head>
@@ -74,14 +53,10 @@
   </div>
 
   <div class="main-container">
-
     <div class="card scanner-card">
       <div id="reader"></div>
     </div>
-
-    <div id="loading" class="loading">
-      ⏳ Memproses check-in...
-    </div>
+    <div id="loading" class="loading">⏳ Memproses check-in...</div>
 
     <div id="result" class="result">
       <div id="icon" class="icon"></div>
@@ -94,54 +69,34 @@
 
     <div class="card">
       <div class="form-title">Check-in Manual</div>
+      <div class="form-subtitle">Isi minimal salah satu data di bawah ini:</div>
       <form id="manualForm" onsubmit="handleManualSubmit(event)">
-        
         <div class="input-group">
           <label for="inputId">ID UNDANGAN</label>
           <input type="text" id="inputId" placeholder="Contoh: EVT-00001">
         </div>
-
-        <div class="divider">ATAU</div>
-
         <div class="input-group">
           <label for="inputName">NAMA PESERTA</label>
-          <input type="text" id="inputName" placeholder="Masukkan nama peserta...">
+          <input type="text" id="inputName" placeholder="Masukkan nama (boleh sebagian)...">
         </div>
         <div class="input-group">
           <label for="inputOutlet">KODE OUTLET</label>
           <input type="text" id="inputOutlet" placeholder="Contoh: JTC-001">
         </div>
-
         <button type="submit" class="btn-submit">SUBMIT CHECK-IN</button>
       </form>
     </div>
-
   </div>
 
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjUje0qMfh2yJcS0F4od1Ojomn1-NZ4A5vvds21OPLCrB3ILeIUDPoFYjhvLezSJbxmg/exec';
-
-let scanning = true;
-let html5QrCode;
-
-const resultBox = document.getElementById('result');
-const icon = document.getElementById('icon');
-const statusBox = document.getElementById('status');
-const nameBox = document.getElementById('name');
-const outletBox = document.getElementById('outlet');
-const idBox = document.getElementById('id');
-const timeBox = document.getElementById('time');
-const loading = document.getElementById('loading');
+let scanning = true, html5QrCode;
+const resultBox = document.getElementById('result'), icon = document.getElementById('icon'), statusBox = document.getElementById('status'), nameBox = document.getElementById('name'), outletBox = document.getElementById('outlet'), idBox = document.getElementById('id'), timeBox = document.getElementById('time'), loading = document.getElementById('loading');
 
 function startCamera() {
   html5QrCode = new Html5Qrcode("reader");
   const config = { fps: 10, qrbox: { width: 220, height: 220 } };
-
-  html5QrCode.start(
-    { facingMode: { exact: "environment" } }, 
-    config, 
-    onScanSuccess
-  ).catch(() => {
+  html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess).catch(() => {
     html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
   });
 }
@@ -149,21 +104,15 @@ function startCamera() {
 function onScanSuccess(decodedText) {
   if (!scanning) return;
   scanning = false;
-
   let token = '';
-  try {
-    const url = new URL(decodedText);
-    token = url.searchParams.get('token') || '';
-  } catch (error) {
-    token = decodedText.trim();
-  }
+  try { token = new URL(decodedText).searchParams.get('token') || ''; } 
+  catch (e) { token = decodedText.trim(); }
 
   if (!token) {
     showResult({ success: false, message: 'QR Code tidak valid!' });
     setTimeout(resumeScanner, 3000);
     return;
   }
-
   executeRequest('checkin', '&token=' + encodeURIComponent(token));
 }
 
@@ -175,28 +124,22 @@ function handleManualSubmit(e) {
   const nameVal = document.getElementById('inputName').value.trim();
   const outletVal = document.getElementById('inputOutlet').value.trim();
 
-  // Validasi: Harus mengisi ID Saja, ATAU Nama dan Outlet
-  if (!idVal && (!nameVal || !outletVal)) {
-    alert('Mohon isi ID Undangan, atau lengkapi Nama & Kode Outlet!');
+  if (!idVal && !nameVal && !outletVal) {
+    alert('Mohon isi minimal salah satu data (ID, Nama, atau Outlet)!');
     return;
   }
 
   scanning = false;
-  const extraParams = '&id=' + encodeURIComponent(idVal) + 
-                      '&name=' + encodeURIComponent(nameVal) + 
-                      '&outlet=' + encodeURIComponent(outletVal);
-                      
-  executeRequest('manual_checkin', extraParams);
+  executeRequest('manual_checkin', '&id=' + encodeURIComponent(idVal) + '&name=' + encodeURIComponent(nameVal) + '&outlet=' + encodeURIComponent(outletVal));
 }
 
 function executeRequest(action, extraParams) {
   loading.style.display = 'block';
   const callbackName = 'checkInCallback_' + Date.now();
-
   const timeoutId = setTimeout(() => {
     if (window[callbackName]) {
       loading.style.display = 'none';
-      showResult({ success: false, message: 'Koneksi ke server timeout.' });
+      showResult({ success: false, message: 'Koneksi ke server timeout (Versi server mungkin belum di-deploy terbaru).' });
       delete window[callbackName];
       setTimeout(resumeScanner, 3000);
     }
@@ -219,55 +162,34 @@ function executeRequest(action, extraParams) {
     try { delete window[callbackName]; } catch(e) {}
     setTimeout(resumeScanner, 3000);
   };
-
   document.body.appendChild(script);
 }
 
 function showResult(result) {
   resultBox.style.display = 'block';
-
   if (result.success) {
-    resultBox.className = 'result success';
-    icon.innerText = '✅';
-    statusBox.innerText = 'CHECK-IN BERHASIL';
-    nameBox.innerText = result.name || '-';
-    outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
-    idBox.innerText = 'ID: ' + (result.id || '-');
-    timeBox.innerText = 'Waktu: ' + (result.time || '');
+    resultBox.className = 'result success'; icon.innerText = '✅'; statusBox.innerText = 'CHECK-IN BERHASIL';
+    nameBox.innerText = result.name || '-'; outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
+    idBox.innerText = 'ID: ' + (result.id || '-'); timeBox.innerText = 'Waktu: ' + (result.time || '');
     return;
   }
-
   if (result.alreadyCheckedIn) {
-    resultBox.className = 'result warning';
-    icon.innerText = '⚠️';
-    statusBox.innerText = 'SUDAH CHECK-IN';
-    nameBox.innerText = result.name || '-';
-    outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
-    idBox.innerText = 'ID: ' + (result.id || '-');
-    timeBox.innerText = result.time ? 'Check-in: ' + result.time : '';
+    resultBox.className = 'result warning'; icon.innerText = '⚠️'; statusBox.innerText = 'SUDAH CHECK-IN';
+    nameBox.innerText = result.name || '-'; outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
+    idBox.innerText = 'ID: ' + (result.id || '-'); timeBox.innerText = result.time ? 'Check-in: ' + result.time : '';
     return;
   }
-
-  resultBox.className = 'result failed';
-  icon.innerText = '❌';
-  statusBox.innerText = 'GAGAL CHECK-IN';
-  nameBox.innerText = result.message || 'Data tidak ditemukan.';
-  outletBox.innerText = '';
-  idBox.innerText = '';
-  timeBox.innerText = '';
+  resultBox.className = 'result failed'; icon.innerText = '❌'; statusBox.innerText = 'GAGAL CHECK-IN';
+  nameBox.innerText = result.message || 'Data tidak ditemukan.'; outletBox.innerText = ''; idBox.innerText = ''; timeBox.innerText = '';
 }
 
 function resumeScanner() {
-  resultBox.style.display = 'none';
-  loading.style.display = 'none';
-  document.getElementById('inputId').value = '';
-  document.getElementById('inputName').value = '';
-  document.getElementById('inputOutlet').value = '';
+  resultBox.style.display = 'none'; loading.style.display = 'none';
+  document.getElementById('inputId').value = ''; document.getElementById('inputName').value = ''; document.getElementById('inputOutlet').value = '';
   scanning = true;
 }
 
 window.addEventListener('DOMContentLoaded', startCamera);
 </script>
-
 </body>
 </html>
