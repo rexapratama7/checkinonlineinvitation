@@ -10,7 +10,7 @@
   <style>
     :root { --jt-green: #00A651; --jt-green-dark: #008440; --jt-green-light: #E8F5E9; --jt-dark: #1E1E1E; --jt-gray: #F4F6F5; }
     * { box-sizing: border-box; font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
-    body { background-color: var(--jt-gray); color: #333; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+    body { background-color: var(--jt-gray); color: #333; min-height: 100vh; display: flex; flex-direction: column; align-items: center; transition: background-color 0.3s; }
 
     .app-bar { width: 100%; background: var(--jt-green); color: white; padding: 18px 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 10; }
     .app-bar h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
@@ -19,9 +19,9 @@
     .main-container { width: 100%; max-width: 480px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
     .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-    .scanner-card { overflow: hidden; padding: 0; position: relative; border: 3px solid var(--jt-green); border-radius: 16px; }
-    #reader { width: 100%; border: none !important; }
-    #reader video { object-fit: cover !important; border-radius: 12px; }
+    .scanner-card { overflow: hidden; padding: 0; position: relative; border: 3px solid var(--jt-green); border-radius: 16px; background: white; transition: all 0.3s;}
+    #reader { width: 100%; border: none !important; transition: all 0.3s; }
+    #reader video { object-fit: cover !important; border-radius: 0 0 12px 12px; }
     
     .loading { display: none; text-align: center; padding: 12px; font-weight: 500; color: var(--jt-green-dark); }
 
@@ -53,10 +53,17 @@
   </div>
 
   <div class="main-container">
-    <div class="card scanner-card">
+    <div class="card scanner-card" id="scannerCard">
+      <div style="padding: 10px 14px; display: flex; gap: 8px; background: white; border-bottom: 2px solid var(--jt-gray);">
+        <select id="cameraSelect" onchange="switchCamera()" style="padding: 8px; border-radius: 8px; border: 1px solid var(--jt-green); flex: 1; outline: none; font-weight: 600; font-family: inherit; color: var(--jt-dark);">
+          <option value="environment">Kamera Belakang</option>
+          <option value="user">Kamera Depan</option>
+        </select>
+        <button id="flashBtn" type="button" onclick="toggleFlash()" style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--jt-green); color: white; cursor: pointer; font-weight: bold; transition: 0.3s; font-family: inherit;">🔦 Flash</button>
+      </div>
       <div id="reader"></div>
     </div>
-    <div id="loading" class="loading">⏳ Memproses check-in...</div>
+    <div id="loading" class="loading">⏳ Memproses...</div>
 
     <div id="result" class="result">
       <div id="icon" class="icon"></div>
@@ -69,19 +76,22 @@
 
     <div class="card">
       <div class="form-title">Check-in Manual</div>
-      <div class="form-subtitle">Isi minimal salah satu data di bawah ini:</div>
+      <div class="form-subtitle">Isi minimal salah satu data di bawah ini (bisa diketik atau pilih dari dropdown):</div>
       <form id="manualForm" onsubmit="handleManualSubmit(event)">
         <div class="input-group">
           <label for="inputId">ID UNDANGAN</label>
-          <input type="text" id="inputId" placeholder="Contoh: JT-001">
+          <input type="text" id="inputId" list="idList" autocomplete="off" placeholder="Contoh: JT-001">
+          <datalist id="idList"></datalist>
         </div>
         <div class="input-group">
           <label for="inputName">NAMA PESERTA</label>
-          <input type="text" id="inputName" placeholder="Masukkan nama (boleh sebagian)...">
+          <input type="text" id="inputName" list="nameList" autocomplete="off" placeholder="Masukkan nama...">
+          <datalist id="nameList"></datalist>
         </div>
         <div class="input-group">
           <label for="inputOutlet">KODE OUTLET</label>
-          <input type="text" id="inputOutlet" placeholder="Contoh: BDO001A">
+          <input type="text" id="inputOutlet" list="outletList" autocomplete="off" placeholder="Contoh: BDO001A">
+          <datalist id="outletList"></datalist>
         </div>
         <button type="submit" class="btn-submit">SUBMIT CHECK-IN</button>
       </form>
@@ -91,14 +101,105 @@
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjUje0qMfh2yJcS0F4od1Ojomn1-NZ4A5vvds21OPLCrB3ILeIUDPoFYjhvLezSJbxmg/exec';
 let scanning = true, html5QrCode;
+let currentCamera = "environment";
+let flashEnabled = false;
+
 const resultBox = document.getElementById('result'), icon = document.getElementById('icon'), statusBox = document.getElementById('status'), nameBox = document.getElementById('name'), outletBox = document.getElementById('outlet'), idBox = document.getElementById('id'), timeBox = document.getElementById('time'), loading = document.getElementById('loading');
 
+window.addEventListener('DOMContentLoaded', () => {
+  fetchDataList();
+  startCamera();
+});
+
+// Fitur tarik database untuk Dropdown Datalist
+function fetchDataList() {
+  const script = document.createElement('script');
+  const callbackName = 'dataCallback_' + Date.now();
+  window[callbackName] = function(result) {
+    if (result.success && result.data) {
+      const idList = document.getElementById('idList');
+      const nameList = document.getElementById('nameList');
+      const outletList = document.getElementById('outletList');
+      
+      result.data.forEach(item => {
+        if(item.id) idList.innerHTML += `<option value="${item.id}">`;
+        if(item.name) nameList.innerHTML += `<option value="${item.name}">`;
+        if(item.outlet) {
+          item.outlet.split(',').forEach(o => {
+             outletList.innerHTML += `<option value="${o.trim()}">`;
+          });
+        }
+      });
+    }
+    delete window[callbackName];
+  };
+  script.src = APPS_SCRIPT_URL + '?action=get_data&callback=' + callbackName;
+  document.body.appendChild(script);
+}
+
 function startCamera() {
-  html5QrCode = new Html5Qrcode("reader");
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => initScanner()).catch(() => initScanner());
+  } else {
+    html5QrCode = new Html5Qrcode("reader");
+    initScanner();
+  }
+}
+
+function initScanner() {
   const config = { fps: 10, qrbox: { width: 220, height: 220 } };
-  html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess).catch(() => {
+  html5QrCode.start({ facingMode: currentCamera }, config, onScanSuccess).catch(() => {
+    // Fallback jika device tidak mensupport constraints spesifik
     html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
   });
+}
+
+function switchCamera() {
+  currentCamera = document.getElementById("cameraSelect").value;
+  flashEnabled = false;
+  updateFlashUI();
+  startCamera();
+}
+
+function toggleFlash() {
+  const scannerCard = document.getElementById("scannerCard");
+  if (currentCamera === "user") {
+    // Mode layar cerah (Bright Box) untuk kamera depan
+    flashEnabled = !flashEnabled;
+    if (flashEnabled) {
+      document.body.style.backgroundColor = "#FFFFFF";
+      scannerCard.style.border = "8px solid #FFFFFF";
+      scannerCard.style.boxShadow = "0 0 50px #FFFFFF, 0 0 100px #FFFFFF";
+    } else {
+      document.body.style.backgroundColor = "var(--jt-gray)";
+      scannerCard.style.border = "3px solid var(--jt-green)";
+      scannerCard.style.boxShadow = "none";
+    }
+    updateFlashUI();
+  } else {
+    // Mode Torch untuk kamera belakang
+    if (html5QrCode && html5QrCode.getState() === 2) {
+      flashEnabled = !flashEnabled;
+      html5QrCode.applyVideoConstraints({
+        advanced: [{ torch: flashEnabled }]
+      }).catch(err => {
+        alert("Perangkat atau browser ini tidak mendukung fitur flash kamera belakang.");
+        flashEnabled = false;
+      });
+      updateFlashUI();
+    }
+  }
+}
+
+function updateFlashUI() {
+  const btn = document.getElementById("flashBtn");
+  if (flashEnabled) {
+    btn.style.background = "#F59E0B"; 
+    btn.style.color = "#FFF";
+  } else {
+    btn.style.background = "var(--jt-green)";
+    btn.style.color = "white";
+  }
 }
 
 function onScanSuccess(decodedText) {
@@ -139,12 +240,12 @@ function executeRequest(action, extraParams) {
   const timeoutId = setTimeout(() => {
     if (window[callbackName]) {
       loading.style.display = 'none';
-      showResult({ success: false, message: 'Koneksi ke server timeout (Versi server mungkin belum di-deploy terbaru).' });
+      showResult({ success: false, message: 'Koneksi ke server timeout.' });
       delete window[callbackName];
       setTimeout(resumeScanner, 3000);
     }
   }, 10000);
-
+  
   window[callbackName] = function(result) {
     clearTimeout(timeoutId);
     loading.style.display = 'none';
@@ -188,8 +289,6 @@ function resumeScanner() {
   document.getElementById('inputId').value = ''; document.getElementById('inputName').value = ''; document.getElementById('inputOutlet').value = '';
   scanning = true;
 }
-
-window.addEventListener('DOMContentLoaded', startCamera);
 </script>
 </body>
 </html>
