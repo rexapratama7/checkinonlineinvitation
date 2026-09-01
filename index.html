@@ -50,6 +50,14 @@
     .input-group input { width: 100%; padding: 12px; border: 1.5px solid #DDD; border-radius: 8px; font-size: 14px; outline: none; }
     .input-group input:focus { border-color: var(--jt-green); }
     
+    /* Autocomplete Dynamic Dropdown CSS */
+    .autocomplete-container { position: relative; width: 100%; }
+    .autocomplete-items { position: absolute; border: 1px solid #DDD; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background-color: #fff; border-radius: 0 0 8px 8px; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .autocomplete-item { padding: 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #eee; transition: background 0.2s; }
+    .autocomplete-item:hover { background-color: var(--jt-green-light); color: var(--jt-green-dark); }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item strong { color: var(--jt-green); } /* Warna highlight kata kunci yg diketik */
+    
     .btn-submit { width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px; }
     .btn-submit:active { background: var(--jt-green-dark); }
 
@@ -65,6 +73,7 @@
       .input-group label { font-size: 14px; }
       .input-group input { font-size: 16px; padding: 16px; }
       .btn-submit { font-size: 18px; padding: 16px; }
+      .autocomplete-item { font-size: 15px; padding: 14px; }
     }
   </style>
 </head>
@@ -100,25 +109,31 @@
 
     <div class="card">
       <div class="form-title">Check-in Manual</div>
-      <div class="form-subtitle">Isi minimal salah satu data (bisa ketik atau pilih dropdown):</div>
-      <form id="manualForm" onsubmit="handleManualSubmit(event)">
+      <div class="form-subtitle">Ketik data (sistem akan mencari secara otomatis):</div>
+      <form id="manualForm" onsubmit="handleManualSubmit(event)" autocomplete="off">
         
         <div class="input-group">
           <label for="inputId">ID UNDANGAN</label>
-          <input type="text" id="inputId" list="list-id" placeholder="Contoh: JT-001" autocomplete="off">
-          <datalist id="list-id"></datalist>
+          <div class="autocomplete-container">
+            <input type="text" id="inputId" placeholder="Contoh: JT-001">
+            <div id="list-id" class="autocomplete-items" style="display:none;"></div>
+          </div>
         </div>
         
         <div class="input-group">
           <label for="inputName">NAMA PESERTA</label>
-          <input type="text" id="inputName" list="list-name" placeholder="Masukkan nama peserta..." autocomplete="off">
-          <datalist id="list-name"></datalist>
+          <div class="autocomplete-container">
+            <input type="text" id="inputName" placeholder="Masukkan nama peserta...">
+            <div id="list-name" class="autocomplete-items" style="display:none;"></div>
+          </div>
         </div>
         
         <div class="input-group">
           <label for="inputOutlet">KODE OUTLET</label>
-          <input type="text" id="inputOutlet" list="list-outlet" placeholder="Contoh: BDO001A" autocomplete="off">
-          <datalist id="list-outlet"></datalist>
+          <div class="autocomplete-container">
+            <input type="text" id="inputOutlet" placeholder="Contoh: BDO001A">
+            <div id="list-outlet" class="autocomplete-items" style="display:none;"></div>
+          </div>
         </div>
         
         <button type="submit" class="btn-submit">SUBMIT CHECK-IN</button>
@@ -133,6 +148,10 @@ let scanning = true;
 let html5QrCode = null;
 let currentFacingMode = "environment";
 let isFlashOn = false;
+
+// Variabel Global untuk Autocomplete
+let dbParticipants = [];
+let dbOutlets = [];
 
 const resultBox = document.getElementById('result'), 
       icon = document.getElementById('icon'), 
@@ -160,7 +179,6 @@ function runScanner(facingMode) {
   isFlashOn = false; 
   updateFlashUI();
   
-  // Perbesar kotak qrbox jika dibuka di device besar
   const boxSize = Math.min(window.innerWidth, window.innerHeight) > 768 ? 320 : 220;
   const config = { fps: 10, qrbox: { width: boxSize, height: boxSize } };
   
@@ -168,7 +186,6 @@ function runScanner(facingMode) {
 
   html5QrCode.start(constraints, config, onScanSuccess)
   .catch(() => {
-    // Jika gagal, turunkan tingkat ke-strict-an constraint
     html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err => {
       console.warn("Gagal inisiasi kamera:", err);
     });
@@ -185,18 +202,15 @@ async function toggleFlash() {
   isFlashOn = !isFlashOn;
 
   if (currentFacingMode === "user") {
-    // Flash Kamera Depan (Screen Flash)
     flashOverlay.style.display = isFlashOn ? 'block' : 'none';
   } else {
-    // Flash Kamera Belakang (Native Torch via API)
     flashOverlay.style.display = 'none';
     try {
       await html5QrCode.applyVideoConstraints({
         advanced: [{ torch: isFlashOn }]
       });
     } catch (err) {
-      console.log("Torch Error (Device mungkin tidak mensupport native flash via browser):", err);
-      // Fallback jika tidak didukung 
+      console.log("Torch Error:", err);
       flashOverlay.style.display = isFlashOn ? 'block' : 'none';
     }
   }
@@ -228,6 +242,10 @@ function onScanSuccess(decodedText) {
 
 function handleManualSubmit(e) {
   e.preventDefault();
+  
+  // Sembunyikan semua list dropdown saat di submit
+  document.querySelectorAll('.autocomplete-items').forEach(el => el.style.display = 'none');
+  
   const idVal = document.getElementById('inputId').value;
   const nameVal = document.getElementById('inputName').value;
   const outletVal = document.getElementById('inputOutlet').value;
@@ -273,7 +291,6 @@ function showResult(result) {
     resultBox.className = 'result success'; icon.innerText = '✅'; statusBox.innerText = 'CHECK-IN BERHASIL';
     nameBox.innerText = result.name || '-'; outletBox.innerText = 'Kode Outlet: ' + (result.outlet || '-');
     idBox.innerText = 'ID: ' + (result.id || '-'); timeBox.innerText = 'Waktu: ' + (result.time || '');
-    // Kosongkan form input setelah check-in berhasil
     document.getElementById('manualForm').reset();
     return;
   }
@@ -292,24 +309,21 @@ function resumeScanner() {
   scanning = true;
 }
 
-// --- TARIK DATA UNTUK DROPDOWN (DATALIST) --- //
+// --- LOGIKA AUTOCOMPLETE TYPEAHEAD --- //
 function fetchDropdownData() {
   const cbDataName = 'cb_data_' + Date.now();
   window[cbDataName] = function(response) {
     if (response && response.success) {
-      const listId = document.getElementById('list-id');
-      const listName = document.getElementById('list-name');
-      const listOutlet = document.getElementById('list-outlet');
+      dbParticipants = response.data; // Array object [{id, name, outlet}]
       
       let outSet = new Set();
-      response.data.forEach(item => {
-        if (item.id) listId.innerHTML += `<option value="${item.id}">`;
-        if (item.name) listName.innerHTML += `<option value="${item.name}">`;
-        if (item.outlet) outSet.add(item.outlet);
-      });
-      outSet.forEach(o => {
-        listOutlet.innerHTML += `<option value="${o}">`;
-      });
+      response.data.forEach(item => { if (item.outlet) outSet.add(item.outlet); });
+      dbOutlets = Array.from(outSet);
+      
+      // Inisialisasi Event Listener Autocomplete
+      setupAutocomplete('inputId', 'list-id', 'id');
+      setupAutocomplete('inputName', 'list-name', 'name');
+      setupAutocomplete('inputOutlet', 'list-outlet', 'outlet');
     }
     try { delete window[cbDataName]; } catch(e) {}
   };
@@ -319,9 +333,76 @@ function fetchDropdownData() {
   document.body.appendChild(script);
 }
 
+function setupAutocomplete(inputId, listId, dataField) {
+  const input = document.getElementById(inputId);
+  const listContainer = document.getElementById(listId);
+
+  input.addEventListener('input', function() {
+    const val = this.value;
+    listContainer.innerHTML = '';
+    
+    if (!val) { 
+      listContainer.style.display = 'none'; 
+      return; 
+    }
+    
+    const lowerVal = val.toLowerCase();
+    let matches = [];
+
+    // Filter data sesuai apa yang diketik
+    if (dataField === 'outlet') {
+      matches = dbOutlets.filter(o => o.toLowerCase().includes(lowerVal));
+    } else {
+      matches = dbParticipants
+                  .map(p => p[dataField])
+                  .filter(v => v && v.toLowerCase().includes(lowerVal));
+      matches = [...new Set(matches)]; // Hapus data kembar
+    }
+
+    if (matches.length === 0) { 
+      listContainer.style.display = 'none'; 
+      return; 
+    }
+
+    // Buat element dropdown dinamis
+    matches.forEach(match => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      
+      // Highlight text yang sesuai dengan ketikan
+      const regex = new RegExp(`(${val})`, "gi");
+      div.innerHTML = match.replace(regex, "<strong>$1</strong>");
+      
+      // Ketika list di-klik, pindahkan value ke input
+      div.addEventListener('click', function() {
+        input.value = match;
+        listContainer.style.display = 'none';
+      });
+      
+      listContainer.appendChild(div);
+    });
+    
+    listContainer.style.display = 'block';
+  });
+
+  // Munculkan kembali dropdown jika input difokuskan dan tidak kosong
+  input.addEventListener('focus', function() {
+     if (this.value && listContainer.innerHTML !== '') {
+        listContainer.style.display = 'block';
+     }
+  });
+
+  // Sembunyikan list jika klik di tempat lain
+  document.addEventListener('click', function(e) {
+    if (e.target !== input && !listContainer.contains(e.target)) {
+      listContainer.style.display = 'none';
+    }
+  });
+}
+
 // --- INIT AWAL --- //
 document.addEventListener("DOMContentLoaded", () => {
-  fetchDropdownData(); // Tarik data dropdown pada saat awal halaman diload
+  fetchDropdownData(); 
   initCamera("environment");
 });
 </script>
