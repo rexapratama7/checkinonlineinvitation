@@ -56,7 +56,7 @@
     .autocomplete-item { padding: 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #eee; transition: background 0.2s; }
     .autocomplete-item:hover { background-color: var(--jt-green-light); color: var(--jt-green-dark); }
     .autocomplete-item:last-child { border-bottom: none; }
-    .autocomplete-item strong { color: var(--jt-green); } /* Warna highlight kata kunci yg diketik */
+    .autocomplete-item strong { color: var(--jt-green); } 
     
     .btn-submit { width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px; }
     .btn-submit:active { background: var(--jt-green-dark); }
@@ -179,18 +179,15 @@ function runScanner(facingMode) {
   isFlashOn = false; 
   updateFlashUI();
   
-  // PENINGKATAN: Area diperbesar ke batas aman (260 px) agar barcode lebih gampang masuk kotak
-  const boxSize = Math.min(window.innerWidth, window.innerHeight) > 768 ? 350 : 260;
+  // PENINGKATAN: Tidak ada qrbox (kotak scan) sehingga seluruh area layar jadi area scan.
+  // Kecepatan (fps) tetap kita set ke 15.
+  const config = { fps: 15 };
   
-  // PENINGKATAN: FPS dinaikkan agar pemrosesan gambar per detiknya lebih sering (lebih responsif)
-  const config = { fps: 15, qrbox: { width: boxSize, height: boxSize } };
-  
-  // Menggunakan konfigurasi yang terbukti berjalan lancar di versi awal
   let constraints = facingMode === "user" ? { facingMode: "user" } : { facingMode: { exact: "environment" } };
 
   html5QrCode.start(constraints, config, onScanSuccess)
   .catch((err) => {
-    // Fallback jika exact environment gagal (sangat umum di beberapa HP Android)
+    // Fallback jika exact environment gagal
     console.warn("Mencoba fallback kamera...", err);
     html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err2 => {
       console.error("Gagal inisiasi kamera:", err2);
