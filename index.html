@@ -149,6 +149,7 @@ let html5QrCode = null;
 let currentFacingMode = "environment";
 let isFlashOn = false;
 
+// Variabel Global untuk Autocomplete
 let dbParticipants = [];
 let dbOutlets = [];
 
@@ -178,27 +179,22 @@ function runScanner(facingMode) {
   isFlashOn = false; 
   updateFlashUI();
   
-  // PENINGKATAN: Memperbesar area scan (80% lebar layar, max 400px)
-  const minDim = Math.min(window.innerWidth, window.innerHeight);
-  const boxSize = minDim > 768 ? 400 : Math.floor(minDim * 0.8);
+  // PENINGKATAN: Area diperbesar ke batas aman (260 px) agar barcode lebih gampang masuk kotak
+  const boxSize = Math.min(window.innerWidth, window.innerHeight) > 768 ? 350 : 260;
   
-  // PENINGKATAN: FPS ditingkatkan ke 15 & disableFlip untuk kamera depan
-  const config = { 
-    fps: 15, 
-    qrbox: { width: boxSize, height: boxSize },
-    disableFlip: false 
-  };
+  // PENINGKATAN: FPS dinaikkan agar pemrosesan gambar per detiknya lebih sering (lebih responsif)
+  const config = { fps: 15, qrbox: { width: boxSize, height: boxSize } };
   
-  // PENINGKATAN: Meminta resolusi HD untuk membantu fokus kamera
-  let constraints = facingMode === "user" 
-    ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
-    : { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+  // Menggunakan konfigurasi yang terbukti berjalan lancar di versi awal
+  let constraints = facingMode === "user" ? { facingMode: "user" } : { facingMode: { exact: "environment" } };
 
   html5QrCode.start(constraints, config, onScanSuccess)
-  .catch(() => {
-    // Fallback jika HP tidak support resolusi ideal
-    html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err => {
-      console.warn("Gagal inisiasi kamera:", err);
+  .catch((err) => {
+    // Fallback jika exact environment gagal (sangat umum di beberapa HP Android)
+    console.warn("Mencoba fallback kamera...", err);
+    html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err2 => {
+      console.error("Gagal inisiasi kamera:", err2);
+      alert("Kamera gagal diakses. Pastikan Anda telah memberikan izin kamera pada browser Anda.");
     });
   });
 }
@@ -254,6 +250,7 @@ function onScanSuccess(decodedText) {
 function handleManualSubmit(e) {
   e.preventDefault();
   
+  // Sembunyikan semua list dropdown saat di submit
   document.querySelectorAll('.autocomplete-items').forEach(el => el.style.display = 'none');
   
   const idVal = document.getElementById('inputId').value;
@@ -330,6 +327,7 @@ function fetchDropdownData() {
       response.data.forEach(item => { if (item.outlet) outSet.add(item.outlet); });
       dbOutlets = Array.from(outSet);
       
+      // Inisialisasi Event Listener Autocomplete
       setupAutocomplete('inputId', 'list-id', 'id');
       setupAutocomplete('inputName', 'list-name', 'name');
       setupAutocomplete('inputOutlet', 'list-outlet', 'outlet');
@@ -358,6 +356,7 @@ function setupAutocomplete(inputId, listId, dataField) {
     const lowerVal = val.toLowerCase();
     let matches = [];
 
+    // Filter data sesuai apa yang diketik
     if (dataField === 'outlet') {
       matches = dbOutlets.filter(o => o.toLowerCase().includes(lowerVal));
     } else {
@@ -372,13 +371,16 @@ function setupAutocomplete(inputId, listId, dataField) {
       return; 
     }
 
+    // Buat element dropdown dinamis
     matches.forEach(match => {
       const div = document.createElement('div');
       div.className = 'autocomplete-item';
       
+      // Highlight text yang sesuai dengan ketikan
       const regex = new RegExp(`(${val})`, "gi");
       div.innerHTML = match.replace(regex, "<strong>$1</strong>");
       
+      // Ketika list di-klik, pindahkan value ke input
       div.addEventListener('click', function() {
         input.value = match;
         listContainer.style.display = 'none';
@@ -390,12 +392,14 @@ function setupAutocomplete(inputId, listId, dataField) {
     listContainer.style.display = 'block';
   });
 
+  // Munculkan kembali dropdown jika input difokuskan dan tidak kosong
   input.addEventListener('focus', function() {
      if (this.value && listContainer.innerHTML !== '') {
         listContainer.style.display = 'block';
      }
   });
 
+  // Sembunyikan list jika klik di tempat lain
   document.addEventListener('click', function(e) {
     if (e.target !== input && !listContainer.contains(e.target)) {
       listContainer.style.display = 'none';
@@ -403,6 +407,7 @@ function setupAutocomplete(inputId, listId, dataField) {
   });
 }
 
+// --- INIT AWAL --- //
 document.addEventListener("DOMContentLoaded", () => {
   fetchDropdownData(); 
   initCamera("environment");
