@@ -113,10 +113,10 @@
       <form id="manualForm" onsubmit="handleManualSubmit(event)" autocomplete="off">
         
         <div class="input-group">
-          <label for="inputId">ID UNDANGAN</label>
+          <label for="inputEmail">Alamat email</label>
           <div class="autocomplete-container">
-            <input type="text" id="inputId" placeholder="Contoh: JT-001">
-            <div id="list-id" class="autocomplete-items" style="display:none;"></div>
+            <input type="text" id="inputId" placeholder="Contoh: example@gmail.com">
+            <div id="list-email" class="autocomplete-items" style="display:none;"></div>
           </div>
         </div>
         
@@ -325,7 +325,7 @@ function fetchDropdownData() {
       dbOutlets = Array.from(outSet);
       
       // Inisialisasi Event Listener Autocomplete
-      setupAutocomplete('inputId', 'list-id', 'id');
+      setupAutocomplete('inputEmail', 'list-email', 'email');
       setupAutocomplete('inputName', 'list-name', 'name');
       setupAutocomplete('inputOutlet', 'list-outlet', 'outlet');
     }
