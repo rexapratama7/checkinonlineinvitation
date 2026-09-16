@@ -113,9 +113,9 @@
       <form id="manualForm" onsubmit="handleManualSubmit(event)" autocomplete="off">
         
         <div class="input-group">
-          <label for="inputEmail">Alamat email</label>
+          <label for="inputEmail">ALAMAT EMAIL PESERTA</label>
           <div class="autocomplete-container">
-            <input type="text" id="inputEmail" placeholder="Contoh: example@gmail.com">
+            <input type="email" id="inputEmail" placeholder="Contoh: peserta@email.com">
             <div id="list-email" class="autocomplete-items" style="display:none;"></div>
           </div>
         </div>
@@ -179,15 +179,11 @@ function runScanner(facingMode) {
   isFlashOn = false; 
   updateFlashUI();
   
-  // PENINGKATAN: Tidak ada qrbox (kotak scan) sehingga seluruh area layar jadi area scan.
-  // Kecepatan (fps) tetap kita set ke 15.
   const config = { fps: 15 };
-  
   let constraints = facingMode === "user" ? { facingMode: "user" } : { facingMode: { exact: "environment" } };
 
   html5QrCode.start(constraints, config, onScanSuccess)
   .catch((err) => {
-    // Fallback jika exact environment gagal
     console.warn("Mencoba fallback kamera...", err);
     html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err2 => {
       console.error("Gagal inisiasi kamera:", err2);
@@ -250,16 +246,16 @@ function handleManualSubmit(e) {
   // Sembunyikan semua list dropdown saat di submit
   document.querySelectorAll('.autocomplete-items').forEach(el => el.style.display = 'none');
   
-  const idVal = document.getElementById('inputId').value;
+  const emailVal = document.getElementById('inputEmail').value;
   const nameVal = document.getElementById('inputName').value;
   const outletVal = document.getElementById('inputOutlet').value;
 
-  if (!idVal && !nameVal && !outletVal) {
+  if (!emailVal && !nameVal && !outletVal) {
     alert('Isi minimal satu kolom pencarian.');
     return;
   }
   
-  const extraParams = `?action=manual_checkin&id=${encodeURIComponent(idVal)}&name=${encodeURIComponent(nameVal)}&outlet=${encodeURIComponent(outletVal)}`;
+  const extraParams = `?action=manual_checkin&email=${encodeURIComponent(emailVal)}&name=${encodeURIComponent(nameVal)}&outlet=${encodeURIComponent(outletVal)}`;
   submitCheckIn(extraParams);
 }
 
@@ -318,7 +314,7 @@ function fetchDropdownData() {
   const cbDataName = 'cb_data_' + Date.now();
   window[cbDataName] = function(response) {
     if (response && response.success) {
-      dbParticipants = response.data; // Array object [{id, name, outlet}]
+      dbParticipants = response.data; // Array object [{id, name, email, outlet}]
       
       let outSet = new Set();
       response.data.forEach(item => { if (item.outlet) outSet.add(item.outlet); });
