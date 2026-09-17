@@ -359,21 +359,24 @@ function showBajuModal(outlets) {
       <label style="font-size: 12px; font-weight: bold; color: #444; display: block; margin-bottom: 6px;">Jumlah Baju</label>
       <div class="qty-control">
         <button class="qty-btn" type="button" onclick="changeQty(this, -1)">-</button>
-        <input type="number" class="qty-input" value="1" min="1" readonly>
+        <input type="number" class="qty-input" value="1" min="0" readonly>
         <button class="qty-btn" type="button" onclick="changeQty(this, 1)">+</button>
       </div>
       
-      <label style="font-size: 12px; font-weight: bold; color: #444; display: block; margin-bottom: 6px;">Ukuran Baju</label>
-      <div class="size-dropdowns">
-        <select class="size-select">
-            <option value="">-- Pilih Ukuran --</option>
-            <option value="S">S</option>
-            <option value="M">M</option>
-            <option value="L">L</option>
-            <option value="XL">XL</option>
-            <option value="XXL">XXL</option>
-            <option value="XXXL">XXXL</option>
-        </select>
+      <div class="size-section">
+        <label style="font-size: 12px; font-weight: bold; color: #444; display: block; margin-bottom: 6px;">Ukuran Baju</label>
+        <div class="size-dropdowns">
+          <select class="size-select">
+              <option value="">-- Pilih Ukuran --</option>
+              <option value="S">S</option>
+              <option value="M">M</option>
+              <option value="L">L</option>
+              <option value="XL">XL</option>
+              <option value="XXL">XXL</option>
+              <option value="3XL">3XL</option>
+              <option value="4XL">4XL</option>
+          </select>
+        </div>
       </div>
     `;
     container.appendChild(block);
@@ -385,27 +388,46 @@ function showBajuModal(outlets) {
 function changeQty(btn, delta) {
   const block = btn.closest('.outlet-block');
   const input = block.querySelector('.qty-input');
-  let currentVal = parseInt(input.value) || 1;
+  let currentVal = parseInt(input.value) || 0;
   let newVal = currentVal + delta;
   
-  if (newVal < 1) newVal = 1;
+  // Mencegah agar nilai kuantitas tidak kurang dari 0
+  if (newVal < 0) newVal = 0;
   input.value = newVal;
   
-  // Jika kuantitas berubah, tambah/kurangi dropdown ukuran baju
+  const sizeSection = block.querySelector('.size-section');
   const sizeContainer = block.querySelector('.size-dropdowns');
   const currentSelects = sizeContainer.querySelectorAll('.size-select');
   
+  // Jika kuantitas 0, sembunyikan seluruh input ukuran
+  if (newVal === 0) {
+    sizeSection.style.display = 'none';
+  } else {
+    sizeSection.style.display = 'block';
+  }
+
+  // Generate HTML select untuk ditambahkan secara dinamis
+  const selectHTML = `
+    <select class="size-select">
+        <option value="">-- Pilih Ukuran --</option>
+        <option value="S">S</option>
+        <option value="M">M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+        <option value="XXL">XXL</option>
+        <option value="XXXL">XXXL</option>
+    </select>
+  `;
+
   if (newVal > currentSelects.length) {
     // Tambah elemen select
     for (let i = currentSelects.length; i < newVal; i++) {
-      const newSelect = currentSelects[0].cloneNode(true);
-      newSelect.value = ""; // Reset value nya jadi kosong
-      sizeContainer.appendChild(newSelect);
+      sizeContainer.insertAdjacentHTML('beforeend', selectHTML);
     }
   } else if (newVal < currentSelects.length) {
     // Hapus elemen select yang berlebih
     for (let i = currentSelects.length - 1; i >= newVal; i--) {
-      currentSelects[i].remove();
+      if (currentSelects[i]) currentSelects[i].remove();
     }
   }
 }
@@ -423,19 +445,23 @@ function confirmBaju() {
   // Proses semua outlet dan ukuran bajunya
   blocks.forEach(block => {
     const outlet = block.dataset.outlet;
-    const qty = parseInt(block.querySelector('.qty-input').value) || 1;
+    const qty = parseInt(block.querySelector('.qty-input').value) || 0;
     const selects = block.querySelectorAll('.size-select');
     
     let sizes = [];
-    selects.forEach(sel => {
-      if (!sel.value) valid = false; // Harus terisi semua
-      sizes.push(sel.value);
-    });
+    
+    // Hanya lakukan pengecekan select jika kuantitas lebih dari 0
+    if (qty > 0) {
+      selects.forEach(sel => {
+        if (!sel.value) valid = false; // Harus terisi semua
+        sizes.push(sel.value);
+      });
+    }
     
     payload.push({
       outlet: outlet,
       jumlah: qty,
-      sizes: sizes.join(', ') // Format jadinya "L, XL, S" dst
+      sizes: qty > 0 ? sizes.join(', ') : '-' // Jika 0, kirim string '-'
     });
   });
   
