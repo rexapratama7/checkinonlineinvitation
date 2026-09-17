@@ -61,13 +61,23 @@
     .btn-submit { width: 100%; background: var(--jt-green); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(0, 166, 81, 0.3); transition: background 0.2s; margin-top: 8px; }
     .btn-submit:active { background: var(--jt-green-dark); }
 
-    /* Modal Styling untuk Pop-up Baju */
+    /* Modal Styling untuk Pop-up Baju Dinamis */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; }
-    .modal-box { background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .modal-box h3 { margin-bottom: 16px; color: var(--jt-green-dark); }
-    .modal-box select { width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid #DDD; font-size: 15px; margin-bottom: 20px; outline: none; }
-    .modal-box select:focus { border-color: var(--jt-green); }
-    .modal-actions { display: flex; gap: 10px; }
+    .modal-box { background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 360px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; max-height: 85vh; }
+    .modal-box h3 { margin-bottom: 16px; color: var(--jt-green-dark); text-align: center; }
+    
+    #outletListContainer { overflow-y: auto; padding-right: 5px; margin-bottom: 15px; }
+    .outlet-block { background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    
+    .qty-control { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .qty-btn { width: 34px; height: 34px; background: var(--jt-green-light); color: var(--jt-green-dark); border: 1px solid var(--jt-green); border-radius: 6px; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+    .qty-btn:active { background: var(--jt-green); color: white; }
+    .qty-input { width: 60px; text-align: center; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; padding: 6px; font-weight: bold; }
+    
+    .size-select { width: 100%; padding: 10px; border-radius: 6px; border: 1.5px solid #DDD; font-size: 14px; margin-bottom: 8px; outline: none; }
+    .size-select:focus { border-color: var(--jt-green); }
+    
+    .modal-actions { display: flex; gap: 10px; flex-shrink: 0; }
     .btn-cancel { flex: 1; padding: 12px; border: 1px solid #ccc; background: #f4f4f4; border-radius: 8px; font-weight: bold; cursor: pointer; color: #555; }
     .btn-confirm { flex: 1; padding: 12px; border: none; background: var(--jt-green); color: white; border-radius: 8px; font-weight: bold; cursor: pointer; }
     .btn-confirm:active { background: var(--jt-green-dark); }
@@ -92,19 +102,13 @@
   
   <div id="frontFlashOverlay" class="front-flash-overlay"></div>
 
-  <!-- Modal Pop-Up Ukuran Baju -->
+  <!-- Modal Pop-Up Dinamis -->
   <div id="bajuModalOverlay" class="modal-overlay">
     <div class="modal-box">
-      <h3>Pilih Ukuran Baju</h3>
-      <select id="inputBaju">
-          <option value="">-- Silakan Pilih --</option>
-          <option value="S">S</option>
-          <option value="M">M</option>
-          <option value="L">L</option>
-          <option value="XL">XL</option>
-          <option value="XXL">XXL</option>
-          <option value="XXXL">XXXL</option>
-      </select>
+      <h3>Detail Check-In</h3>
+      <div id="outletListContainer">
+        <!-- Elemen dinamis akan di-generate di sini -->
+      </div>
       <div class="modal-actions">
           <button class="btn-cancel" onclick="closeBajuModal()">Batal</button>
           <button class="btn-confirm" onclick="confirmBaju()">Check-In</button>
@@ -179,9 +183,11 @@ let scanning = true;
 let html5QrCode = null;
 let currentFacingMode = "environment";
 let isFlashOn = false;
-let pendingCheckInQuery = ""; // Menyimpan query check-in sementara saat pop-up muncul
 
-// Variabel Global untuk Autocomplete
+// Variable untuk menyimpan request checkin yang tertunda karena pop-up
+let pendingCheckInAction = ""; 
+let pendingCheckInParams = {};
+
 let dbParticipants = [];
 let dbOutlets = [];
 
@@ -217,9 +223,7 @@ function runScanner(facingMode) {
 
   html5QrCode.start(constraints, config, onScanSuccess)
   .catch((err) => {
-    console.warn("Mencoba fallback kamera...", err);
     html5QrCode.start({ facingMode: facingMode }, config, onScanSuccess).catch(err2 => {
-      console.error("Gagal inisiasi kamera:", err2);
       alert("Kamera gagal diakses. Pastikan Anda telah memberikan izin kamera pada browser Anda.");
     });
   });
@@ -239,11 +243,8 @@ async function toggleFlash() {
   } else {
     flashOverlay.style.display = 'none';
     try {
-      await html5QrCode.applyVideoConstraints({
-        advanced: [{ torch: isFlashOn }]
-      });
+      await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isFlashOn }] });
     } catch (err) {
-      console.log("Torch Error:", err);
       flashOverlay.style.display = isFlashOn ? 'block' : 'none';
     }
   }
@@ -270,15 +271,15 @@ function onScanSuccess(decodedText) {
     token = new URL(decodedText).searchParams.get('token');
   }
 
-  // Tampilkan Modal Baju sebelum mengirim API Check-in
-  pendingCheckInQuery = `?action=checkin&token=${encodeURIComponent(token)}`;
-  showBajuModal();
+  // Tarik data check in info dulu sebelum pop up muncul
+  pendingCheckInAction = "checkin";
+  pendingCheckInParams = { token: token };
+  
+  fetchCheckInInfo(`?action=get_info&token=${encodeURIComponent(token)}`);
 }
 
 function handleManualSubmit(e) {
   e.preventDefault();
-  
-  // Sembunyikan semua list dropdown saat di submit
   document.querySelectorAll('.autocomplete-items').forEach(el => el.style.display = 'none');
   
   const emailVal = document.getElementById('inputEmail').value;
@@ -290,40 +291,177 @@ function handleManualSubmit(e) {
     return;
   }
   
-  // Tampilkan Modal Baju sebelum mengirim API Manual Check-in
-  pendingCheckInQuery = `?action=manual_checkin&email=${encodeURIComponent(emailVal)}&name=${encodeURIComponent(nameVal)}&outlet=${encodeURIComponent(outletVal)}`;
-  showBajuModal();
+  pendingCheckInAction = "manual_checkin";
+  pendingCheckInParams = { email: emailVal, name: nameVal, outlet: outletVal };
+  
+  fetchCheckInInfo(`?action=get_info&email=${encodeURIComponent(emailVal)}&name=${encodeURIComponent(nameVal)}&outlet=${encodeURIComponent(outletVal)}`);
 }
 
-// --- LOGIKA POP-UP UKURAN BAJU --- //
-function showBajuModal() {
-  document.getElementById('inputBaju').value = ''; // reset dropdown
+// --- TARIK DATA OUTLET SEBELUM POP-UP --- //
+function fetchCheckInInfo(queryString) {
+  resultBox.style.display = 'none';
+  loading.style.display = 'block';
+  scanning = false;
+  
+  const callbackName = 'cb_info_' + Date.now();
+  window[callbackName] = function(response) {
+    loading.style.display = 'none';
+    if (response.success) {
+      // Saring hanya outlet yang BELUM check-in
+      const pendingOutlets = response.outlets.filter(o => o.status !== 'CHECKED IN');
+      if (pendingOutlets.length === 0) {
+        // Jika sudah checkin semua, langsung tampilkan info
+        showResult({
+          success: false, alreadyCheckedIn: true, 
+          name: response.outlets[0].name, 
+          outlet: response.outlets.map(o=>o.outlet).join(', '),
+          id: response.outlets.map(o=>o.id).join(', '), 
+          time: response.outlets[0].time
+        });
+        setTimeout(resumeScanner, 3500);
+      } else {
+        // Generate list berdasarkan outlet
+        showBajuModal(pendingOutlets);
+      }
+    } else {
+      showResult(response);
+      setTimeout(resumeScanner, 3500);
+    }
+    try { delete window[callbackName]; } catch(e) {}
+  };
+  
+  const script = document.createElement('script');
+  script.src = APPS_SCRIPT_URL + queryString + '&callback=' + callbackName + '&t=' + Date.now();
+  
+  script.onerror = () => {
+    loading.style.display = 'none';
+    showResult({ success: false, message: 'Gagal terhubung ke server.' });
+    try { delete window[callbackName]; } catch(e) {}
+    setTimeout(resumeScanner, 3000);
+  };
+  document.body.appendChild(script);
+}
+
+// --- LOGIKA POP-UP UKURAN BAJU DINAMIS --- //
+function showBajuModal(outlets) {
+  const container = document.getElementById('outletListContainer');
+  container.innerHTML = '';
+  
+  outlets.forEach((o, index) => {
+    const block = document.createElement('div');
+    block.className = 'outlet-block';
+    block.dataset.outlet = o.outlet;
+    
+    block.innerHTML = `
+      <h4 style="margin-bottom: 4px; color: var(--jt-green-dark); font-size: 15px;">${index + 1}. Outlet: ${o.outlet}</h4>
+      <div style="font-size: 12px; margin-bottom: 12px; color:#666;">Nama: ${o.name}</div>
+      
+      <label style="font-size: 12px; font-weight: bold; color: #444; display: block; margin-bottom: 6px;">Jumlah Baju</label>
+      <div class="qty-control">
+        <button class="qty-btn" type="button" onclick="changeQty(this, -1)">-</button>
+        <input type="number" class="qty-input" value="1" min="1" readonly>
+        <button class="qty-btn" type="button" onclick="changeQty(this, 1)">+</button>
+      </div>
+      
+      <label style="font-size: 12px; font-weight: bold; color: #444; display: block; margin-bottom: 6px;">Ukuran Baju</label>
+      <div class="size-dropdowns">
+        <select class="size-select">
+            <option value="">-- Pilih Ukuran --</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+            <option value="XXL">XXL</option>
+            <option value="XXXL">XXXL</option>
+        </select>
+      </div>
+    `;
+    container.appendChild(block);
+  });
+  
   bajuModal.style.display = 'flex';
+}
+
+function changeQty(btn, delta) {
+  const block = btn.closest('.outlet-block');
+  const input = block.querySelector('.qty-input');
+  let currentVal = parseInt(input.value) || 1;
+  let newVal = currentVal + delta;
+  
+  if (newVal < 1) newVal = 1;
+  input.value = newVal;
+  
+  // Jika kuantitas berubah, tambah/kurangi dropdown ukuran baju
+  const sizeContainer = block.querySelector('.size-dropdowns');
+  const currentSelects = sizeContainer.querySelectorAll('.size-select');
+  
+  if (newVal > currentSelects.length) {
+    // Tambah elemen select
+    for (let i = currentSelects.length; i < newVal; i++) {
+      const newSelect = currentSelects[0].cloneNode(true);
+      newSelect.value = ""; // Reset value nya jadi kosong
+      sizeContainer.appendChild(newSelect);
+    }
+  } else if (newVal < currentSelects.length) {
+    // Hapus elemen select yang berlebih
+    for (let i = currentSelects.length - 1; i >= newVal; i--) {
+      currentSelects[i].remove();
+    }
+  }
 }
 
 function closeBajuModal() {
   bajuModal.style.display = 'none';
-  resumeScanner(); // batalkan check-in dan lanjut scan
+  resumeScanner();
 }
 
 function confirmBaju() {
-  const ukuran = document.getElementById('inputBaju').value;
-  if (!ukuran) {
-    alert('Silakan pilih ukuran baju terlebih dahulu!');
+  const blocks = document.querySelectorAll('.outlet-block');
+  let payload = [];
+  let valid = true;
+  
+  // Proses semua outlet dan ukuran bajunya
+  blocks.forEach(block => {
+    const outlet = block.dataset.outlet;
+    const qty = parseInt(block.querySelector('.qty-input').value) || 1;
+    const selects = block.querySelectorAll('.size-select');
+    
+    let sizes = [];
+    selects.forEach(sel => {
+      if (!sel.value) valid = false; // Harus terisi semua
+      sizes.push(sel.value);
+    });
+    
+    payload.push({
+      outlet: outlet,
+      jumlah: qty,
+      sizes: sizes.join(', ') // Format jadinya "L, XL, S" dst
+    });
+  });
+  
+  if (!valid) {
+    alert('Silakan pilih semua ukuran baju untuk di setiap outlet!');
     return;
   }
   
   bajuModal.style.display = 'none';
   
-  // Lanjutkan memanggil API check in beserta parameter baju
-  const finalQuery = pendingCheckInQuery + `&baju=${encodeURIComponent(ukuran)}`;
+  // Rangkai request payload ke API Check In Final
+  let finalQuery = `?action=${pendingCheckInAction}`;
+  if (pendingCheckInAction === 'checkin') {
+    finalQuery += `&token=${encodeURIComponent(pendingCheckInParams.token)}`;
+  } else {
+    finalQuery += `&email=${encodeURIComponent(pendingCheckInParams.email)}&name=${encodeURIComponent(pendingCheckInParams.name)}&outlet=${encodeURIComponent(pendingCheckInParams.outlet)}`;
+  }
+  
+  finalQuery += `&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+  
   submitCheckIn(finalQuery);
 }
 
 function submitCheckIn(queryString) {
   resultBox.style.display = 'none';
   loading.style.display = 'block';
-  scanning = false;
   
   const callbackName = 'cb_' + Date.now();
   window[callbackName] = function(response) {
@@ -375,13 +513,11 @@ function fetchDropdownData() {
   const cbDataName = 'cb_data_' + Date.now();
   window[cbDataName] = function(response) {
     if (response && response.success) {
-      dbParticipants = response.data; // Array object [{id, name, email, outlet}]
-      
+      dbParticipants = response.data;
       let outSet = new Set();
       response.data.forEach(item => { if (item.outlet) outSet.add(item.outlet); });
       dbOutlets = Array.from(outSet);
       
-      // Inisialisasi Event Listener Autocomplete
       setupAutocomplete('inputEmail', 'list-email', 'email');
       setupAutocomplete('inputName', 'list-name', 'name');
       setupAutocomplete('inputOutlet', 'list-outlet', 'outlet');
@@ -402,66 +538,41 @@ function setupAutocomplete(inputId, listId, dataField) {
     const val = this.value;
     listContainer.innerHTML = '';
     
-    if (!val) { 
-      listContainer.style.display = 'none'; 
-      return; 
-    }
-    
+    if (!val) { listContainer.style.display = 'none'; return; }
     const lowerVal = val.toLowerCase();
     let matches = [];
 
-    // Filter data sesuai apa yang diketik
     if (dataField === 'outlet') {
       matches = dbOutlets.filter(o => o.toLowerCase().includes(lowerVal));
     } else {
-      matches = dbParticipants
-                  .map(p => p[dataField])
-                  .filter(v => v && v.toLowerCase().includes(lowerVal));
-      matches = [...new Set(matches)]; // Hapus data kembar
+      matches = dbParticipants.map(p => p[dataField]).filter(v => v && v.toLowerCase().includes(lowerVal));
+      matches = [...new Set(matches)];
     }
 
-    if (matches.length === 0) { 
-      listContainer.style.display = 'none'; 
-      return; 
-    }
+    if (matches.length === 0) { listContainer.style.display = 'none'; return; }
 
-    // Buat element dropdown dinamis
     matches.forEach(match => {
       const div = document.createElement('div');
       div.className = 'autocomplete-item';
-      
-      // Highlight text yang sesuai dengan ketikan
       const regex = new RegExp(`(${val})`, "gi");
       div.innerHTML = match.replace(regex, "<strong>$1</strong>");
-      
-      // Ketika list di-klik, pindahkan value ke input
       div.addEventListener('click', function() {
         input.value = match;
         listContainer.style.display = 'none';
       });
-      
       listContainer.appendChild(div);
     });
-    
     listContainer.style.display = 'block';
   });
 
-  // Munculkan kembali dropdown jika input difokuskan dan tidak kosong
   input.addEventListener('focus', function() {
-     if (this.value && listContainer.innerHTML !== '') {
-        listContainer.style.display = 'block';
-     }
+     if (this.value && listContainer.innerHTML !== '') listContainer.style.display = 'block';
   });
-
-  // Sembunyikan list jika klik di tempat lain
   document.addEventListener('click', function(e) {
-    if (e.target !== input && !listContainer.contains(e.target)) {
-      listContainer.style.display = 'none';
-    }
+    if (e.target !== input && !listContainer.contains(e.target)) listContainer.style.display = 'none';
   });
 }
 
-// --- INIT AWAL --- //
 document.addEventListener("DOMContentLoaded", () => {
   fetchDropdownData(); 
   initCamera("environment");
